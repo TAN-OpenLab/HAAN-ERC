@@ -1130,23 +1130,26 @@ class SMModel(nn.Module):
         f = torch.cat([tf, af], dim=-1)
 
         # Self-Speaker Self-Modal Encoding
-        f, _, _ = self.se(f, self_mask)  # [B, L, 3D]
+        f1, _, _ = self.se(f, self_mask)  # [B, L, 3D]
 
         # Cross-Speaker Self-Modal Encoding
-        f, _, _ = self.ce(f, cross_mask)  # [B, L, 3D]
+        f2, _, _ = self.ce(f1, cross_mask)  # [B, L, 3D]
 
         # Self-Speaker Cross-Modal Encoding
-        f, _, _ = self.ge(f)  # [B, L, 3D]
+        f3, _, _ = self.ge(f2)  # [B, L, 3D]
 
         enc_output = None
+        fs = [f1,f2,f3]
 
         if vf is not None:
-            log_prob = F.log_softmax(self.smax_fc(f), 2)
+            log_probs = [F.log_softmax(self.smax_fc(f), 2).unsqueeze(3) for f in fs]
+            log_prob = torch.mean(torch.cat(log_probs, dim=3), dim=3)
             if return_attns:
                 return log_prob, enc_output, enc_slf_attn_list
             return log_prob, enc_output,
         else:
-            log_prob = F.log_softmax(self.smax_fc(f), 2)
+            log_probs = [F.log_softmax(self.smax_fc(f), 2).unsqueeze(3) for f in fs]
+            log_prob = torch.mean(torch.cat(log_probs, dim=3), dim=3)
             if return_attns:
                 return log_prob, enc_output, enc_slf_attn_list
-            return log_prob, enc_output, f
+            return log_prob, enc_output, f3
